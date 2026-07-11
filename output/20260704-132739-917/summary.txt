@@ -1,9 +1,0 @@
-image=20260704-132739-917.jpg
-roi=495,295,461,340
-used_fallback_roi=false
-stream_is_dark=false
-angle_degrees=6.000
-center_x=256
-half_width=7
-quality_score=0.235
-mean_width=15.528
