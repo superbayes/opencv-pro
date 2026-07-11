@@ -2,6 +2,8 @@
 
 #include <opencv2/core/version.hpp>
 
+#include "ProcessLiquidFlow.hpp"
+
 int main()
 {
     std::cout << "opencv-pro-test" << std::endl;
