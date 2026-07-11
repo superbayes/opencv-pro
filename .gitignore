@@ -1,0 +1,26 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.sln.docstates
+*.userosscache
+*.sln.ide
+
+# 构建输出
+x64/
+Debug/
+Release/
+*.exe
+*.dll
+*.obj
+*.pdb
+*.ilk
+*.lib
+*.exp
+
+# OpenCV 库/依赖 (根据实际情况调整)
+# opencv/
+
+# 其他
+*.log
+*.tmp
