@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{9badcc1a-f45c-46ef-9409-78101ebd04e4}</ProjectGuid>
-    <RootNamespace>opencvpro</RootNamespace>
+    <ProjectGuid>{2874A059-46F8-4F3B-9CDA-1C68942D724C}</ProjectGuid>
+    <RootNamespace>opencvprotest</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -70,6 +70,11 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>$(MSBuildProjectName)</TargetName>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -145,21 +150,7 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="opencv-pro.cpp" />
-    <ClCompile Include="src\contour_tracker.cpp" />
-    <ClCompile Include="src\curve_fit.cpp" />
-    <ClCompile Include="src\debug_visualizer.cpp" />
-    <ClCompile Include="src\preprocess.cpp" />
-    <ClCompile Include="src\roi_detector.cpp" />
-    <ClCompile Include="src\stream_detector.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="include\contour_tracker.h" />
-    <ClInclude Include="include\curve_fit.h" />
-    <ClInclude Include="include\debug_visualizer.h" />
-    <ClInclude Include="include\preprocess.h" />
-    <ClInclude Include="include\roi_detector.h" />
-    <ClInclude Include="include\stream_detector.h" />
+    <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
