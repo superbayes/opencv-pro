@@ -39,8 +39,8 @@ double sim  = ContourHighOrder::featureCosineSimilarity(fd1, fd2);
 | 7 | `d1Distribution` | 质心到轮廓点距离的32-bin概率直方图 | **32** | 形状检索、统计形状差异分析 |
 | 8 | `d2Distribution` | 轮廓上随机点对距离的32-bin概率直方图 | **32** | 形状检索，对遮挡和噪声比 D1 更鲁棒 |
 | 9 | `curvatureProfile` | 64 点离散曲率序列 κ≈Δθ/Δs，最大曲率归一化 | **64** | 局部形状特征、缺陷检测、凹凸分析 |
-| 10 | `featureDistance` | 两个特征向量间的 L2 欧氏距离 | **1** | 距离越小越相似 |
-| 11 | `featureCosineSimilarity` | 两个特征向量间的余弦相似度 cos(θ)，值域 [-1, 1] | **1** | 越接近 1 越相似，对特征尺度不敏感 |
+| 10 | `featureDistance` | 两向量 L2 归一化后欧氏距离 ÷ 2，值域 [0, 1] | **1** | d=0 完全相同，d=1 正交/相反 |
+| 11 | `featureCosineSimilarity` | 余弦相似度映射到 [0, 1]，sim = (cosθ+1)/2 | **1** | sim=0 相反，sim=0.5 正交，sim=1 相同 |
 
 ---
 
@@ -223,29 +223,40 @@ std::vector<double> curvatureProfile(const std::vector<cv::Point>& contour,
 
 ---
 
-### 10. `featureDistance` — 欧氏距离
+### 10. `featureDistance` — 归一化欧氏距离
 
 ```cpp
 double featureDistance(const std::vector<double>& v1,
                        const std::vector<double>& v2);
 ```
 
-**原理：** d(v1, v2) = √[ Σ(v1[i] - v2[i])² ]
+**原理：** 先将两向量 L2 归一化为单位向量 u=v1/|v1|, w=v2/|v2|，再计算 `d = |u - w| / 2`，值域 **[0, 1]**。
+
+- d = 0 → 完全相同
+- d = 1 → 正交或方向完全相反
+
+与 `featureCosineSimilarity` 满足互补关系：**sim + d² = 1**。对特征向量的整体尺度不敏感。
 
 **用途：** 衡量两个特征向量的差异程度，值越小越相似。要求两向量维度相同。
 
 ---
 
-### 11. `featureCosineSimilarity` — 余弦相似度
+### 11. `featureCosineSimilarity` — 归一化余弦相似度
 
 ```cpp
 double featureCosineSimilarity(const std::vector<double>& v1,
                                const std::vector<double>& v2);
 ```
 
-**原理：** cos(θ) = (v1 · v2) / (|v1| × |v2|)，值域 [-1, 1]
+**原理：** cos(θ) = (v1 · v2) / (|v1| × |v2|)，映射为 `sim = (cosθ + 1) / 2`，值域 **[0, 1]**。
 
-**用途：** 衡量两个特征向量的方向一致性。越接近 1 越相似。相比欧氏距离，对特征的整体尺度差异不敏感。要求两向量维度相同。
+- sim = 0 → 方向完全相反
+- sim = 0.5 → 正交
+- sim = 1 → 完全相同
+
+与 `featureDistance` 满足互补关系：**sim + d² = 1**。对特征向量的整体尺度不敏感。
+
+**用途：** 衡量两个特征向量的方向一致性。越接近 1 越相似。要求两向量维度相同。
 
 ---
 

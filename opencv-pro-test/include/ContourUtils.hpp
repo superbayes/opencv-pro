@@ -154,6 +154,274 @@ inline double minRectAspectRatio(const std::vector<cv::Point>& contour)
 }
 
 // ============================================================================
+// 2.5 形状相似度综合评分 (0.0 ~ 1.0, 越接近 1 越相似)
+// ============================================================================
+
+/// 圆形相似度: 综合圆度、最小外接圆面积比、偏心率
+inline double circleSimilarity(const std::vector<cv::Point>& contour)
+{
+    if (contour.size() < 5) return 0.0;
+
+    double a = cv::contourArea(contour);
+    double p = cv::arcLength(contour, true);
+    if (a < 1e-9 || p < 1e-9) return 0.0;
+
+    // 1) 圆度: 4π·area / perimeter² (完美圆 = 1)
+    double circ = (4.0 * CV_PI * a) / (p * p);
+    if (circ > 1.0) circ = 1.0;                    // 截断, 防止数值噪声导致 >1
+
+    // 2) 最小外接圆面积比: contourArea / enclosingCircleArea
+    cv::Point2f center;
+    float radius = 0.0f;
+    cv::minEnclosingCircle(contour, center, radius);
+    double encArea = CV_PI * static_cast<double>(radius) * static_cast<double>(radius);
+    double encRatio = (encArea > 1e-9) ? (a / encArea) : 0.0;
+    if (encRatio > 1.0) encRatio = 1.0;
+
+    // 3) 偏心率补偿: 圆形偏心率 → 0, 所以 1-ecc ≈ 1
+    cv::RotatedRect ellipse = cv::fitEllipse(contour);
+    double major = static_cast<double>(std::max(ellipse.size.width, ellipse.size.height));
+    double minor = static_cast<double>(std::min(ellipse.size.width, ellipse.size.height));
+    double ecc = 0.0;
+    if (major > 1e-9) {
+        ecc = std::sqrt(1.0 - (minor * minor) / (major * major));
+    }
+    double eccScore = 1.0 - ecc;                      // 偏心率越低越好
+
+    // 加权综合
+    constexpr double wCirc    = 0.50;
+    constexpr double wEnc     = 0.45;
+    constexpr double wEcc     = 0.05;
+    double score = wCirc * circ + wEnc * encRatio + wEcc * eccScore;
+
+    return std::clamp(score, 0.0, 1.0);
+}
+
+/// 长方形相似度: 综合矩形度、角点数目、最小旋转矩形面积比
+inline double rectangleSimilarity(const std::vector<cv::Point>& contour)
+{
+    if (contour.size() < 4) return 0.0;
+
+    double a = cv::contourArea(contour);
+    if (a < 1e-9) return 0.0;
+
+    // 1) 矩形度: contourArea / boundingRect.area
+    cv::Rect br = cv::boundingRect(contour);
+    double brArea = static_cast<double>(br.width) * static_cast<double>(br.height);
+    double rect = (brArea > 1e-9) ? (a / brArea) : 0.0;
+    if (rect > 1.0) rect = 1.0;
+
+    // 2) 角点数目得分: 多边形逼近顶点数接近 4 = 高分
+    double peri = cv::arcLength(contour, true);
+    std::vector<cv::Point> approx;
+    cv::approxPolyDP(contour, approx, 0.02 * peri, true);
+    int numVertices = static_cast<int>(approx.size());
+    double vertexScore = 1.0;
+    if (numVertices == 3) {
+        vertexScore = 0.70;
+    } else if (numVertices == 4) {
+        vertexScore = 1.00;
+    } else if (numVertices == 5) {
+        vertexScore = 0.75;
+    } else if (numVertices == 6) {
+        vertexScore = 0.50;
+    } else if (numVertices > 6) {
+        vertexScore = std::max(0.1, 1.0 - 0.08 * (numVertices - 4));
+    } else {
+        vertexScore = 0.30;
+    }
+
+    // 3) 最小旋转矩形面积比: contourArea / minAreaRect.area
+    cv::RotatedRect mr = cv::minAreaRect(contour);
+    double mrArea = static_cast<double>(mr.size.width) * static_cast<double>(mr.size.height);
+    double mrRatio = (mrArea > 1e-9) ? (a / mrArea) : 0.0;
+    if (mrRatio > 1.0) mrRatio = 1.0;
+
+    // 加权综合
+    constexpr double wRect      = 0.50;
+    constexpr double wVertex    = 0.30;
+    constexpr double wMR        = 0.20;
+    double score = wRect * rect + wVertex * vertexScore + wMR * mrRatio;
+
+    return std::clamp(score, 0.0, 1.0);
+}
+
+// ============================================================================
+// 2.6 曲率分析 — 圆形 vs 长方形
+// ============================================================================
+
+/// 离散轮廓曲率计算
+/// 对轮廓上每个点，用前后 k 个邻点构造两个向量，
+/// 通过向量夹角除以弧长近似该点的曲率  κ ≈ Δθ / Δs
+/// @param contour  输入轮廓点序列
+/// @param k        平滑半径 (点数), 默认 5。k 越大曲率越平滑但越不敏感
+/// @return         各点曲率值 (与 contour 等长), 值域 >= 0
+inline std::vector<double> computeCurvature(const std::vector<cv::Point>& contour, int k = 5)
+{
+    const int n = static_cast<int>(contour.size());
+    if (n < 2 * k + 1) {
+        return std::vector<double>(n, 0.0);
+    }
+
+    std::vector<double> curv(n, 0.0);
+
+    for (int i = 0; i < n; ++i) {
+        // 前点 (闭合取模)
+        int prev = (i - k + n) % n;
+        // 后点
+        int next = (i + k) % n;
+
+        const auto& pi = contour[i];
+        const auto& pp = contour[prev];
+        const auto& pn = contour[next];
+
+        // 向量 v1 = pi - pp,  v2 = pn - pi
+        double v1x = static_cast<double>(pi.x - pp.x);
+        double v1y = static_cast<double>(pi.y - pp.y);
+        double v2x = static_cast<double>(pn.x - pi.x);
+        double v2y = static_cast<double>(pn.y - pi.y);
+
+        double len1 = std::sqrt(v1x * v1x + v1y * v1y);
+        double len2 = std::sqrt(v2x * v2x + v2y * v2y);
+
+        if (len1 < 1e-9 || len2 < 1e-9) {
+            curv[i] = 0.0;
+            continue;
+        }
+
+        // cosθ = (v1·v2) / (|v1|·|v2|)
+        double cosTheta = (v1x * v2x + v1y * v2y) / (len1 * len2);
+        // 数值裁剪防越界
+        cosTheta = std::clamp(cosTheta, -1.0, 1.0);
+        double theta = std::acos(cosTheta);        // 方向变化角 [0, π]
+
+        // 弧长 ≈ (len1 + len2) / 2
+        double ds = (len1 + len2) * 0.5;
+        if (ds > 1e-9) {
+            curv[i] = theta / ds;
+        } else {
+            curv[i] = 0.0;
+        }
+    }
+
+    return curv;
+}
+
+/// 曲率统计: 均值、标准差、变异系数、低曲率占比、高曲率占比
+struct CurvatureStats {
+    double mean    = 0.0;   // 曲率均值
+    double stddev  = 0.0;   // 曲率标准差
+    double cv      = 0.0;   // 变异系数  σ / |μ|
+    double lowRatio = 0.0;  // 低曲率点占比 (κ < lowThresh, 近似直线)
+    double highRatio = 0.0; // 高曲率点占比 (κ > highThresh, 近似角点)
+};
+
+/// 计算曲率统计信息
+/// @param curv         曲率序列
+/// @param lowThresh    低曲率阈值 (低于此值视为直线段)
+/// @param highThresh   高曲率阈值 (高于此值视为角点)
+inline CurvatureStats curvatureStatistics(const std::vector<double>& curv,
+                                          double lowThresh = 0.02,
+                                          double highThresh = 0.15)
+{
+    CurvatureStats stats;
+    if (curv.empty()) return stats;
+
+    const int n = static_cast<int>(curv.size());
+
+    // 均值
+    double sum = 0.0;
+    for (double c : curv) sum += c;
+    stats.mean = sum / n;
+
+    // 标准差 & 低/高比率
+    double sumSq = 0.0;
+    int lowCount = 0;
+    int highCount = 0;
+    for (double c : curv) {
+        double diff = c - stats.mean;
+        sumSq += diff * diff;
+        if (c < lowThresh)  ++lowCount;
+        if (c > highThresh) ++highCount;
+    }
+
+    double variance = (n > 1) ? (sumSq / static_cast<double>(n)) : 0.0;
+    stats.stddev = std::sqrt(variance);
+    stats.cv = (std::abs(stats.mean) > 1e-9) ? (stats.stddev / std::abs(stats.mean)) : 0.0;
+    stats.lowRatio  = static_cast<double>(lowCount)  / n;
+    stats.highRatio = static_cast<double>(highCount) / n;
+
+    return stats;
+}
+
+/// 基于曲率均匀度的圆形相似度 (0.0~1.0)
+/// 原理: 圆的曲率处处相等, 变异系数(CV)趋近于 0
+///       CV 越大说明曲率越不均匀, 越不像圆
+inline double circleSimilarityByCurvature(const std::vector<cv::Point>& contour, int k = 5)
+{
+    if (contour.size() < 2 * k + 1) return 0.0;
+
+    std::vector<double> curv = computeCurvature(contour, k);
+    CurvatureStats stats = curvatureStatistics(curv);
+
+    // 变异系数 → 圆形评分:  CV=0 时得分 1.0, CV 越大得分越低
+    double cv = stats.cv;
+    // 使用指数衰减: exp(-α·CV²),  α 控制衰减速度
+    constexpr double alpha = 15.0;
+    double cvScore = std::exp(-alpha * cv * cv);
+
+    // 补充: 低曲率占比过高也不行 (圆不应该有大量接近直线的段)
+    double lowPenalty = 1.0 - stats.lowRatio;
+
+    double score = cvScore * lowPenalty;
+    return std::clamp(score, 0.0, 1.0);
+}
+
+/// 基于曲率双峰分布的矩形相似度 (0.0~1.0)
+/// 原理: 长方形四边曲率≈0 (低), 四角曲率很高 (高),
+///       曲率分布呈双峰: 大量低值 + 少量极高值
+///       表现为: 低曲率占比高、高曲率占比低但存在、标准差大
+inline double rectangleSimilarityByCurvature(const std::vector<cv::Point>& contour, int k = 5)
+{
+    if (contour.size() < 2 * k + 1) return 0.0;
+
+    std::vector<double> curv = computeCurvature(contour, k);
+    CurvatureStats stats = curvatureStatistics(curv);
+
+    // 1) 低曲率占比得分: 矩形的边占大部分, 期望 > 0.6
+    double lowScore = stats.lowRatio;
+    // 饱和映射: > 0.7 接近满分
+    lowScore = std::min(1.0, lowScore / 0.70);
+
+    // 2) 高曲率存在性: 矩形必须有几个尖峰, 但不能太多
+    double highScore = 0.0;
+    if (stats.highRatio > 0.02 && stats.highRatio < 0.50) {
+        // 理想矩形: 4 个角 / 总点数 ≈ 小比例
+        highScore = 1.0;
+    } else if (stats.highRatio >= 0.50) {
+        highScore = 1.0 - (stats.highRatio - 0.50);  // 太多高曲率 → 减分
+    } else {
+        highScore = stats.highRatio / 0.02;  // < 0.02 线性衰减
+    }
+    highScore = std::clamp(highScore, 0.0, 1.0);
+
+    // 3) 变异系数得分: 矩形 CV 应该较大 (不均匀)
+    double cvScore = std::min(1.0, stats.cv / 2.0);  // CV > 2 满分
+
+    // 4) 峰度近似: 低曲率占比高 + 存在少量极端值 → 典型矩形
+    double bimodalScore = lowScore * highScore;
+
+    // 加权
+    constexpr double wLow      = 0.40;
+    constexpr double wHigh     = 0.25;
+    constexpr double wCV       = 0.15;
+    constexpr double wBimodal  = 0.20;
+    double score = wLow * lowScore + wHigh * highScore + wCV * cvScore + wBimodal * bimodalScore;
+
+    return std::clamp(score, 0.0, 1.0);
+}
+
+// ============================================================================
 // 3. Hu 矩与形状匹配
 // ============================================================================
 

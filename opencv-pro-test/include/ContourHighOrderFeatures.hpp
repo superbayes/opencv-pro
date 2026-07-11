@@ -596,8 +596,10 @@ inline std::vector<double> curvatureProfile(const std::vector<cv::Point>& contou
 }
 
 // ============================================================================
-// 10. featureDistance — 欧氏距离
-//     原理: 两个特征向量之间的 L2 欧氏距离
+// 10. featureDistance — 归一化欧氏距离
+//     原理: 先将两向量各自 L2 归一化 (化为单位向量)，再计算欧氏距离，最后除以 2
+//           值域 [0, 1]，d=0 表示完全相同，d=1 表示完全正交或方向相反
+//           与 featureCosineSimilarity 满足关系: sim + d² = 1
 //     用途: 形状匹配，距离越小表示越相似
 // ============================================================================
 
@@ -609,17 +611,31 @@ inline double featureDistance(const std::vector<double>& v1,
     }
     if (v1.empty()) return 0.0;
 
-    double sumSq = 0.0;
+    // 先计算 L2 范数
+    double norm1Sq = 0.0, norm2Sq = 0.0, dot = 0.0;
     for (size_t i = 0; i < v1.size(); ++i) {
-        double diff = v1[i] - v2[i];
-        sumSq += diff * diff;
+        norm1Sq += v1[i] * v1[i];
+        norm2Sq += v2[i] * v2[i];
+        dot     += v1[i] * v2[i];
     }
-    return std::sqrt(sumSq);
+
+    double norm1 = std::sqrt(norm1Sq);
+    double norm2 = std::sqrt(norm2Sq);
+
+    if (norm1 < 1e-12 || norm2 < 1e-12) return 1.0;  // 零向量视为最大距离
+
+    double cosTheta = dot / (norm1 * norm2);
+    // d² = |u - w|² = 2 - 2·cosθ → d = √(2 - 2·cosθ) / 2
+    double dSq = 0.5 * (1.0 - cosTheta);
+    if (dSq < 0.0) dSq = 0.0;  // 数值防护
+    return std::sqrt(dSq);
 }
 
 // ============================================================================
-// 11. featureCosineSimilarity — 余弦相似度
-//     原理: cos(θ) = (v1·v2) / (|v1|·|v2|)，值域 [-1, 1]
+// 11. featureCosineSimilarity — 归一化余弦相似度
+//     原理: cos(θ) = (v1·v2) / (|v1|·|v2|)，映射到值域 [0, 1]
+//           sim = (cosθ + 1) / 2，0=完全相反，0.5=正交，1=完全相同
+//           与 featureDistance 满足关系: sim + d² = 1
 //     用途: 形状匹配，越接近 1 表示方向越一致 (对特征尺度不敏感)
 // ============================================================================
 
@@ -638,8 +654,9 @@ inline double featureCosineSimilarity(const std::vector<double>& v1,
         norm2 += v2[i] * v2[i];
     }
     double denom = std::sqrt(norm1) * std::sqrt(norm2);
-    if (denom < 1e-12) return 0.0;
-    return dot / denom;
+    if (denom < 1e-12) return 0.5;  // 零向量 → 无方向倾向，返回中点
+    // 映射 cosθ ∈ [-1, 1] → [0, 1]
+    return (dot / denom + 1.0) * 0.5;
 }
 
 } // namespace ContourHighOrder

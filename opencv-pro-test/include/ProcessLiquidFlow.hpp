@@ -1,10 +1,12 @@
 #pragma once
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include "ContourUtils.hpp"
+#include "ContourHighOrderFeatures.hpp"
 
 
 //S4 - 检测倾斜液流
@@ -37,6 +39,7 @@ void processLiquidFlow()
         cv::threshold(bilateraImage, binaryImage, 210, 255, cv::THRESH_BINARY);
 
         //基于binaryImage，使用连通域分析方法connectedComponentsWithStats，获取每个连通域的面积和中心坐标，外接矩形
+        cv::Rect target_rect;
         cv::Mat labels,stats, centroids;
         int numComponents = 
             cv::connectedComponentsWithStats(binaryImage, labels, stats, centroids, 8);
@@ -60,58 +63,67 @@ void processLiquidFlow()
             std::vector<std::vector<cv::Point>> contours;
             cv::findContours(blobMask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
             
-            //计算当前blob与圆形的相似度,与长方形的相似度.
-            double circularity = 0.0;
-            double rectangularity = 0.0;
-            double curveCircleSim  = 0.0;  // 曲率法: 圆形相似度
-            double curveRectSim    = 0.0;  // 曲率法: 矩形相似度
-            int shapeType = 0;  // 0=未知, 1=圆形, 2=矩形
-            if (!contours.empty()) {
-                const auto& ct = contours[0];
-
-                // ---- 方法 A: 全局几何特征 ----
-                circularity   = ContourUtils::circleSimilarity(ct);
-                rectangularity = ContourUtils::rectangleSimilarity(ct);
-
-                // ---- 方法 B: 轮廓曲率特征 ----
-                curveCircleSim = ContourUtils::circleSimilarityByCurvature(ct, /*k=*/5);
-                curveRectSim   = ContourUtils::rectangleSimilarityByCurvature(ct, /*k=*/5);
-
-                // ---- 综合判断: 同时参考两种方法 ----
-                constexpr double CIRCLE_THRESHOLD = 1.25;
-                constexpr double RECT_THRESHOLD   = 0.80;
-
-                if (rectangularity > 1e-9) {
-                    double ratio = circularity / rectangularity;
-
-                    bool isCircleByGlobal = (ratio >= CIRCLE_THRESHOLD);
-                    bool isRectByGlobal   = (ratio <= RECT_THRESHOLD);
-
-                    // 曲率法确认: 圆形曲率评分应 > 0.75, 矩形曲率评分应 > 0.60
-                    bool isCircleByCurve  = (curveCircleSim > 0.75);
-                    bool isRectByCurve    = (curveRectSim   > 0.60);
-
-                    if (isCircleByGlobal && isCircleByCurve) {
-                        shapeType = 1;  // 圆形 (两种方法一致)
-                    } else if (isRectByGlobal && isRectByCurve) {
-                        shapeType = 2;  // 矩形 (两种方法一致)
-                    } else if (isCircleByGlobal) {
-                        shapeType = 1;  // 圆形 (仅全局方法, 曲率不确认但全局信号强)
-                    } else if (isRectByGlobal) {
-                        shapeType = 2;  // 矩形 (仅全局方法)
-                    }
-                    // 若 ratio 在中间区间 (0.80~1.25), 保持未知
-                }
-            }
-            
-            if (shapeType==1)
+            //先对contours[0]进行简化,移除掉毛刺, 再获取凸包轮廓,再计算凸包的d1Distribution特征向量
+            double sim = 0;
+            cv::Mat visImage;
+            std::vector<double> d1Feat;
+            if (!contours.empty())
             {
-                continue;
+                // a) 多边形逼近去毛刺 (epsilon = 0.5% 周长)
+                std::vector<cv::Point> simplified = ContourUtils::approxPolyDP(contours[0], 0.005);
+
+                // b) 获取凸包
+                std::vector<cv::Point> hull = ContourUtils::convexHull(simplified);
+
+                // c) 计算凸包的 D1 分布特征向量 (32 维直方图)
+                d1Feat = ContourHighOrder::d1Distribution(hull,16);
+                // 打印 D1 特征向量到控制台 (逗号分隔, 保留5位小数)
+                //std::cout << "[D1] ";
+                //for (size_t i = 0; i < d1Feat.size(); ++i) {
+                //    std::cout << std::fixed << std::setprecision(5) << d1Feat[i];
+                //    if (i + 1 < d1Feat.size()) std::cout << ", ";
+                //}
+                //std::cout << "\n";
+
+                //创建D1 特征向量模板(16维)，用于储存模板向量
+                std::vector<double> d1Template = { 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.30078, 0.19141, 0.17188, 0.22656, 0.10938 };
+                //std::vector<double> d1Template = { 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.06641, 0.14062, 0.08203, 0.07422, 0.06250, 0.06250, 0.05469, 0.09375, 0.36328 };
+
+                //计算d1Feat与d1Template01，d1Template02的余弦相似度
+                sim = ContourHighOrder::featureCosineSimilarity(d1Feat, d1Template);
+                std::cout << "[CosineSimilarity] Template01=" << std::fixed << std::setprecision(5) << sim << std::endl;
+
+                // d) 可视化: 在 blobMask 拷贝上绘制简化轮廓(蓝色)和凸包轮廓(红色)
+                cv::cvtColor(blobMask, visImage, cv::COLOR_GRAY2BGR);
+                cv::drawContours(visImage, std::vector<std::vector<cv::Point>>{simplified},
+                                 -1, cv::Scalar(255, 0, 0), 2);   // 蓝色: 简化轮廓
+                cv::drawContours(visImage, std::vector<std::vector<cv::Point>>{hull},
+                                 -1, cv::Scalar(0, 0, 255), 2);   // 红色: 凸包轮廓
             }
-        
+
+            
+            if (sim > 0.85)
+            {
+                target_rect = cv::Rect(x, y, w, binaryImage.rows - y);
+            }
+            continue;
         }
 
-        // TODO: 在此处对 image 进行液流检测处理
+        //基于target_rect，检测倾斜的液流
+        if (target_rect.area() == 0)
+        {
+            target_rect = cv::Rect(0, 0, binaryImage.cols, binaryImage.rows);
+        }
+        //可视化
+		cv::rectangle(grayImage, target_rect, cv::Scalar(255, 200, 0), 5);
+
+        ///////////////////////////////////////////////////////////////////////////
+        //开始计算roi区域中，液流特征
+        cv::Mat roi_gray = grayImage(target_rect).clone();
+
+        //对roi_gray进行增强，让亮的地方更亮，暗的地方更暗
+
+
 
         continue;
     }
