@@ -3,6 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="opencv-pro\opencv-pro.vcxproj" Id="9badcc1a-f45c-46ef-9409-78101ebd04e4" />
   <Project Path="opencv-pro-test\opencv-pro-test.vcxproj" Id="2874a059-46f8-4f3b-9cda-1c68942d724c" />
 </Solution>
