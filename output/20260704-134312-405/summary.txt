@@ -1,0 +1,9 @@
+image=20260704-134312-405.jpg
+roi=495,300,460,334
+used_fallback_roi=false
+stream_is_dark=false
+angle_degrees=6.000
+center_x=257
+half_width=6
+quality_score=0.204
+mean_width=15.337

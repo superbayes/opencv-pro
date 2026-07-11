@@ -111,7 +111,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\ProgramData\opencv411\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;D:\ProgramData\opencv411\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -132,7 +132,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\ProgramData\opencv411\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;D:\ProgramData\opencv411\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -146,6 +146,20 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="opencv-pro.cpp" />
+    <ClCompile Include="src\contour_tracker.cpp" />
+    <ClCompile Include="src\curve_fit.cpp" />
+    <ClCompile Include="src\debug_visualizer.cpp" />
+    <ClCompile Include="src\preprocess.cpp" />
+    <ClCompile Include="src\roi_detector.cpp" />
+    <ClCompile Include="src\stream_detector.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\contour_tracker.h" />
+    <ClInclude Include="include\curve_fit.h" />
+    <ClInclude Include="include\debug_visualizer.h" />
+    <ClInclude Include="include\preprocess.h" />
+    <ClInclude Include="include\roi_detector.h" />
+    <ClInclude Include="include\stream_detector.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

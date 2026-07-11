@@ -1,0 +1,9 @@
+image=AutoAlignOpticalPath-20260706-235128-206-000002.jpg
+roi=556,280,446,324
+used_fallback_roi=false
+stream_is_dark=false
+angle_degrees=0.504
+center_x=151
+half_width=9
+quality_score=0.235
+mean_width=14.462

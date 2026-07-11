@@ -1,0 +1,15 @@
+# Base clangd config for this Visual Studio + OpenCV project.
+# This mirrors the active x64 Debug settings in opencv-pro.vcxproj
+# so clangd can parse the project more like MSVC does.
+CompileFlags:
+  Compiler: "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/cl.exe"
+  Add:
+    - /std:c++20
+    - /EHsc
+    - /D_DEBUG
+    - /D_CONSOLE
+    - /IE:/01wk/vs2026/opencv-pro/include
+    - /ID:/ProgramData/opencv411/build/include
+
+Index:
+  Background: Build
