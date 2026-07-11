@@ -189,7 +189,7 @@ StreamDetectionResult detectStream(const PreprocessResult& preprocessResult) {
     cv::Mat rotatedFeatureSmoothed;
     cv::GaussianBlur(result.rotatedFeature, rotatedFeatureSmoothed, cv::Size(1, 41), 0.0);
     const StreamCandidate rotatedCandidate =
-        findCandidate(smooth1D(columnEnergy(rotatedFeatureSmoothed), 6), smooth1D(columnEnergy(result.rotatedEdge), 4));
+         findCandidate(smooth1D(columnEnergy(rotatedFeatureSmoothed), 6), smooth1D(columnEnergy(result.rotatedEdge), 4));
     result.centerX = rotatedCandidate.centerX;
     result.halfWidth = rotatedCandidate.halfWidth;
 

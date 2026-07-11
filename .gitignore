@@ -21,8 +21,10 @@ Release/
 # OpenCV 库/依赖 (根据实际情况调整)
 # opencv/
 
-# 图像文件夹
+# 图像/输出文件夹
 image/
+/output/
+/output/**
 
 # 其他
 *.log

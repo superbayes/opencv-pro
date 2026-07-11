@@ -4,6 +4,9 @@
 
 namespace liquid {
 
+/// <summary>
+/// 表示检测到的ROI结果
+/// </summary>
 struct ROIResult {
     cv::Rect rect;
     bool usedFallback = false;
