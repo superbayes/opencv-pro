@@ -21,6 +21,9 @@ Release/
 # OpenCV 库/依赖 (根据实际情况调整)
 # opencv/
 
+# 图像文件夹
+image/
+
 # 其他
 *.log
 *.tmp
