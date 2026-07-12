@@ -1,19 +1,15 @@
 #pragma once
 
+// LiquidFlowResult 定义见: opencv-pro-develop/include/LiquidFlowResult.h
+//   成员: float best_angle  — 最佳旋转角度 (度)
+//         float best_idx1   — 谷底1 x 坐标 (全局坐标系)
+//         float best_idx2   — 谷底2 x 坐标 (全局坐标系)
+//         int   success     — 1=成功, 0=失败
+#include "LiquidFlowResult.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-// ---- 结果结构体 ----
-
-#pragma pack(push, 1)
-typedef struct {
-    float best_angle;   // 最佳旋转角度 (度)
-    float best_idx1;    // 谷底1 x 坐标 (全局坐标系)
-    float best_idx2;    // 谷底2 x 坐标 (全局坐标系)
-    int   success;      // 1=成功, 0=失败
-} LiquidFlowResult;
-#pragma pack(pop)
 
 // ---- 导出函数 ----
 // 返回值: 0=成功, -1=参数错误, -2=OpenCV 异常, -3=未知异常
