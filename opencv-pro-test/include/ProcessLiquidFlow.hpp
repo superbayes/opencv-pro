@@ -8,6 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include "ContourUtils.hpp"
 #include "ContourHighOrderFeatures.hpp"
+#include "LiquidFlowResult.h"
 
 
 // findTwoValleys: 在 reduceMat（1×N 投影向量）中寻找两个谷底（局部极小值）
@@ -310,4 +311,205 @@ void processLiquidFlows()
         cv::Mat image = cv::imread(path);
         processLiquidFlowImage(image);
     }
+}
+
+// processLiquidFlowImageCore: 与 processLiquidFlowImage 管线完全相同的液流检测核心
+// 区别: 1) 返回 LiquidFlowResult 结构体而非写入控制台
+//       2) 通过 diag_log 输出诊断日志
+//       3) 检测完成后将 grayImage (含绿色竖线标注) 保存至 savePath
+inline LiquidFlowResult processLiquidFlowImageCore(
+    const cv::Mat& image,
+    const std::string& savePath,
+    std::ostringstream& diag_log)
+{
+    LiquidFlowResult result = { 0.0f, 0.0f, 0.0f, 0 }; // success=0
+
+    if (!image.empty())
+        diag_log << "===== processLiquidFlowImage Diagnostic =====\n"
+                 << "image_size  = " << image.cols << "x" << image.rows << "\n";
+    else {
+        diag_log << "===== processLiquidFlowImage Diagnostic =====\n"
+                 << "image_size  = (empty)\n"
+                 << "STATUS: FAIL - empty input image\n";
+        return result;
+    }
+    try
+    {
+        // 灰度化 & 双边滤波
+        cv::Mat grayImage, bilateraImage, binaryImage;
+        cv::cvtColor(image, grayImage, cv::COLOR_BGR2GRAY);
+        cv::bilateralFilter(grayImage, bilateraImage, 9, 75, 75);
+
+        // 二值化
+        cv::threshold(bilateraImage, binaryImage, 210, 255, cv::THRESH_BINARY);
+
+        // 连通域分析
+        cv::Rect target_rect;
+        cv::Mat labels, stats, centroids;
+        int numComponents =
+            cv::connectedComponentsWithStats(binaryImage, labels, stats, centroids, 8);
+        for (int idx = 1; idx < numComponents; idx++)
+        {
+            int x    = stats.at<int>(idx, cv::CC_STAT_LEFT);
+            int y    = stats.at<int>(idx, cv::CC_STAT_TOP);
+            int w    = stats.at<int>(idx, cv::CC_STAT_WIDTH);
+            int h    = stats.at<int>(idx, cv::CC_STAT_HEIGHT);
+            int area = stats.at<int>(idx, cv::CC_STAT_AREA);
+
+            if (area < 800)
+                continue;
+
+            cv::Mat blobMask = (labels == idx);
+            blobMask.convertTo(blobMask, CV_8UC1);
+            std::vector<std::vector<cv::Point>> contours;
+            cv::findContours(blobMask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+            double sim = 0;
+            cv::Mat visImage;
+            std::vector<double> d1Feat;
+            if (!contours.empty())
+            {
+                std::vector<cv::Point> simplified = ContourUtils::approxPolyDP(contours[0], 0.005);
+                std::vector<cv::Point> hull = ContourUtils::convexHull(simplified);
+                d1Feat = ContourHighOrder::d1Distribution(hull, 16);
+                diag_log << "d1Feat      = ";
+                for (size_t i = 0; i < d1Feat.size(); ++i) {
+                    diag_log << std::fixed << std::setprecision(5) << d1Feat[i];
+                    if (i + 1 < d1Feat.size()) diag_log << ", ";
+                }
+                diag_log << "\n";
+
+                std::vector<double> d1Template = {
+                    0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000, 0.00000,
+                    0.00000, 0.00000, 0.00000, 0.30078, 0.19141, 0.17188, 0.22656, 0.10938
+                };
+                sim = ContourHighOrder::featureCosineSimilarity(d1Feat, d1Template);
+                diag_log << "[CosineSimilarity] Template01=" << std::fixed << std::setprecision(5) << sim << "\n";
+
+                cv::cvtColor(blobMask, visImage, cv::COLOR_GRAY2BGR);
+                cv::drawContours(visImage, std::vector<std::vector<cv::Point>>{simplified},
+                                 -1, cv::Scalar(255, 0, 0), 2);
+                cv::drawContours(visImage, std::vector<std::vector<cv::Point>>{hull},
+                                 -1, cv::Scalar(0, 0, 255), 2);
+            }
+
+            if (sim > 0.85)
+            {
+                target_rect = cv::Rect(x, y, w, h);
+            }
+            continue;
+        }
+
+        diag_log << "components  = " << numComponents << "\n";
+        if (target_rect.area() > 0)
+            diag_log << "target_rect = [x=" << target_rect.x << ", y=" << target_rect.y
+                     << ", w=" << target_rect.width << ", h=" << target_rect.height << "]\n";
+        else
+            diag_log << "target_rect = (none matched, using full image)\n";
+
+        if (target_rect.area() == 0)
+            target_rect = cv::Rect(0, 0, binaryImage.cols, binaryImage.rows);
+
+        // 旋转扫描寻谷
+        cv::Mat roi_gray = grayImage(target_rect).clone();
+        std::vector<cv::Vec<float,5>> valleyList;
+        float best_angle = 0.0f, best_idx1 = 0.0f, best_idx2 = 0.0f;
+        cv::Mat best_rotated;
+        double best_avg = std::numeric_limits<double>::max();
+
+        cv::Point2f center(roi_gray.cols / 2.0f, roi_gray.rows / 2.0f);
+
+        for (double angle = -5; angle <= 5.0; angle += 0.25)
+        {
+            if (angle == 0)
+                continue;
+
+            cv::Mat rot_mat = cv::getRotationMatrix2D(center, angle, 1.0);
+            cv::Mat rotated, rotated_bin;
+            cv::warpAffine(roi_gray, rotated, rot_mat, roi_gray.size(),
+                           cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0));
+
+            cv::adaptiveThreshold(rotated, rotated_bin, 255,
+                                  cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 7, 2);
+
+            cv::Mat reduceMat;
+            cv::reduce(rotated_bin, reduceMat, 0, cv::REDUCE_AVG, CV_8UC1);
+
+            cv::Vec<float,5> valleys = findTwoValleys(reduceMat, angle);
+            valleyList.push_back(valleys);
+
+            if (valleys[0] >= 0 && valleys[2] >= 0)
+            {
+                double avgValley = (static_cast<double>(valleys[1]) + valleys[3]) * 0.5;
+                if (avgValley < best_avg)
+                {
+                    best_avg     = avgValley;
+                    best_angle   = static_cast<float>(angle);
+                    best_idx1    = valleys[0] + static_cast<float>(target_rect.x);
+                    best_idx2    = valleys[2] + static_cast<float>(target_rect.x);
+                    best_rotated = rotated_bin.clone();
+                }
+            }
+            continue;
+        }
+
+        diag_log << "valley_cnt  = " << valleyList.size() << "\n";
+        diag_log << "best_avg    = " << best_avg << "\n";
+        diag_log << "best_angle  = " << best_angle << " deg\n";
+        diag_log << "best_idx1   = " << best_idx1 << "\n";
+        diag_log << "best_idx2   = " << best_idx2 << "\n";
+        if (!best_rotated.empty())
+            diag_log << "best_rotated= " << best_rotated.rows << "x" << best_rotated.cols << "\n";
+        else
+            diag_log << "best_rotated= (empty)\n";
+
+        // 可视化: 在 grayImage 上绘制两条绿色竖线
+        if (best_idx1 > 0 && best_idx2 > 0)
+        {
+            cv::line(grayImage, cv::Point(static_cast<int>(best_idx1), 0),
+                     cv::Point(static_cast<int>(best_idx1), grayImage.rows - 1),
+                     cv::Scalar(0, 255, 0), 1);
+            cv::line(grayImage, cv::Point(static_cast<int>(best_idx2), 0),
+                     cv::Point(static_cast<int>(best_idx2), grayImage.rows - 1),
+                     cv::Scalar(0, 255, 0), 1);
+        }
+
+        // 保存 grayImage 到磁盘
+        if (!savePath.empty() && !grayImage.empty())
+        {
+            bool saved = cv::imwrite(savePath, grayImage);
+            diag_log << "save_gray   = " << (saved ? "OK" : "FAIL") << " -> " << savePath << "\n";
+        }
+
+        // 填充结果
+        result.best_angle = best_angle;
+        result.best_idx1  = best_idx1;
+        result.best_idx2  = best_idx2;
+        result.success    = 1;
+
+        diag_log << "STATUS: SUCCESS\n";
+    }
+    catch (const cv::Exception& e)
+    {
+        diag_log << "STATUS: FAIL - OpenCV Exception\n"
+                 << "  err_code = " << e.code << "\n"
+                 << "  func     = " << e.func << "\n"
+                 << "  file     = " << e.file << "\n"
+                 << "  line     = " << e.line << "\n"
+                 << "  msg      = " << e.what() << "\n";
+        result.success = 0;
+    }
+    catch (const std::exception& e)
+    {
+        diag_log << "STATUS: FAIL - std::exception\n"
+                 << "  msg = " << e.what() << "\n";
+        result.success = 0;
+    }
+    catch (...)
+    {
+        diag_log << "STATUS: FAIL - Unknown exception\n";
+        result.success = 0;
+    }
+
+    return result;
 }
