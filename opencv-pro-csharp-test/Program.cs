@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 
 namespace OpenCvProTest;
 
@@ -15,27 +14,12 @@ class Program
         Console.WriteLine("========================================");
         Console.WriteLine();
 
-        // 设置默认路径
-        string defaultImagePath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "image", "test.jpg");
-        string defaultSavePath = Path.Combine(AppContext.BaseDirectory, "grayImage.png");
+        // 输入图像路径
+        string imagePath = @"..\..\..\..\image\test.jpg";
+        // 灰度图像保存路径
+        string savePath = "grayImage.png";
 
-        // 获取输入图像路径
-        string imagePath = GetInputPath("请输入测试图像路径", defaultImagePath);
-        
-        // 获取灰度图像保存路径
-        string savePath = GetInputPath("请输入灰度图像保存路径", defaultSavePath);
-
-        // 确保保存目录存在
-        string? saveDir = Path.GetDirectoryName(savePath);
-        if (!string.IsNullOrEmpty(saveDir) && !Directory.Exists(saveDir))
-        {
-            Directory.CreateDirectory(saveDir);
-            Console.WriteLine($"创建目录: {saveDir}");
-        }
-
-        Console.WriteLine();
         Console.WriteLine("开始处理...");
-        Console.WriteLine();
 
         // 调用液流检测
         int ret = LiquidFlowDetector.DetectFromFile(
@@ -47,12 +31,11 @@ class Program
 
         // 输出返回码
         Console.WriteLine($"返回码: {ret}");
-        Console.WriteLine();
+
 
         // 输出诊断日志
         Console.WriteLine("--- 诊断日志 ---");
         Console.WriteLine(diagLog);
-        Console.WriteLine();
 
         // 输出检测结果
         if (result.Success == 1)
@@ -74,25 +57,4 @@ class Program
         Console.ReadKey();
     }
 
-    /// <summary>
-    /// 获取用户输入路径
-    /// </summary>
-    static string GetInputPath(string prompt, string defaultPath)
-    {
-        Console.WriteLine($"{prompt} (默认: {defaultPath}):");
-        string? input = Console.ReadLine();
-
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return defaultPath;
-        }
-
-        // 处理相对路径
-        if (!Path.IsPathRooted(input))
-        {
-            return Path.Combine(AppContext.BaseDirectory, input);
-        }
-
-        return input;
-    }
 }
