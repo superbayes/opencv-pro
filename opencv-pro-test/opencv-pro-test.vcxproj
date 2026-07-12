@@ -153,7 +153,9 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\ContourHighOrderFeatures.hpp" />
     <ClInclude Include="include\ContourUtils.hpp" />
+    <ClInclude Include="include\LiquidFlowResult.h" />
     <ClInclude Include="include\ProcessLiquidFlow.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

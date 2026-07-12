@@ -15,9 +15,17 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\ContourHighOrderFeatures.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="include\ContourUtils.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="include\ProcessLiquidFlow.hpp" />
+    <ClInclude Include="include\LiquidFlowResult.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ProcessLiquidFlow.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
