@@ -5,4 +5,5 @@
   </Configurations>
   <Project Path="opencv-pro-develop\opencv-pro-develop.vcxproj" Id="2874a059-46f8-4f3b-9cda-1c68942d724c" />
   <Project Path="opencv-pro-dll\opencv-pro-dll.vcxproj" Id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
+  <Project Path="opencv-pro-csharp-test\opencv-pro-csharp-test.csproj" Id="b2c3d4e5-f6a7-8901-bcde-f23456789012" />
 </Solution>
