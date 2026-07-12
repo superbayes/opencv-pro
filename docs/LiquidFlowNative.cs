@@ -83,7 +83,7 @@ public static class LiquidFlowDetector
         bmp.UnlockBits(bmpData);
 
         // 2. 调用原生 DLL
-        var sb = new StringBuilder(4096);
+        var sb = new StringBuilder(20480);
         var res = new LiquidFlowResult();
 
         int ret = LiquidFlowNative.ProcessLiquidFlow(

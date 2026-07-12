@@ -22,7 +22,7 @@ __declspec(dllexport) int __stdcall ProcessLiquidFlow(
     const char*          savePath,   // grayImage 保存路径 (完整文件路径, UTF-8)
     LiquidFlowResult*    result,     // [out] 检测结果
     char*                diagLog,    // [out] 诊断日志缓冲区
-    int                  diagLogSize // 缓冲区大小 (建议 ≥ 2048)
+    int                  diagLogSize // 缓冲区大小 (建议 ≥ 20480)
 );
 
 #ifdef __cplusplus
