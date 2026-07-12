@@ -220,11 +220,17 @@ inline void processLiquidFlowImage(const cv::Mat& image)
             cv::warpAffine(roi_gray, rotated, rot_mat, roi_gray.size(),
                            cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(0));
 
-            cv::adaptiveThreshold(rotated, rotated_bin, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 7, 2);
+            cv::adaptiveThreshold(rotated, rotated_bin, 255, cv::ADAPTIVE_THRESH_MEAN_C, 
+                cv::THRESH_BINARY, 9, 5);
+
+            cv::Mat k33 = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,1));
+			cv::morphologyEx(rotated_bin, rotated_bin, cv::MORPH_ERODE, k33);
 
             //向y向投影
             cv::Mat reduceMat;
-            cv::reduce(rotated_bin, reduceMat, 0, cv::REDUCE_AVG, CV_8UC1);
+            cv::reduce(rotated_bin, reduceMat, 0, cv::REDUCE_SUM, CV_32FC1);
+            reduceMat /= 255;
+			reduceMat.convertTo(reduceMat, CV_8UC1);
 
             // 基于 reduceMat 寻峰: 找两个谷底（液柱间隙）
             cv::Vec<float,5> valleys = findTwoValleys(reduceMat, angle);
