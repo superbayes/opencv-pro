@@ -6,7 +6,7 @@
 
 int main()
 {
-    std::cout << "opencv-pro-test" << std::endl;
+    std::cout << "opencv-pro-develop" << std::endl;
     std::cout << "OpenCV version: " << CV_VERSION << std::endl;
     processLiquidFlows();
 

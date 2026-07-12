@@ -2,11 +2,11 @@
 
 ## 目标
 
-在 [`processLiquidFlowImage`](opencv-pro-test/include/ProcessLiquidFlow.hpp:88) 函数外层包裹 try-catch，捕获 OpenCV 异常和标准库异常，防止在工业现场多变光照条件下因偶发异常导致程序崩溃。**保持现有管线逻辑不变**。
+在 [`processLiquidFlowImage`](opencv-pro-develop/include/ProcessLiquidFlow.hpp:88) 函数外层包裹 try-catch，捕获 OpenCV 异常和标准库异常，防止在工业现场多变光照条件下因偶发异常导致程序崩溃。**保持现有管线逻辑不变**。
 
 ## 修改文件
 
-- `opencv-pro-test/include/ProcessLiquidFlow.hpp`
+- `opencv-pro-develop/include/ProcessLiquidFlow.hpp`
 
 ## 具体修改
 

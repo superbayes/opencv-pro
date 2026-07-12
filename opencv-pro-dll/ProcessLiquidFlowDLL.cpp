@@ -6,7 +6,7 @@
 #include <opencv2/opencv.hpp>
 
 // 包含核心算法（header-only inline 函数）
-#include "../opencv-pro-test/include/ProcessLiquidFlow.hpp"
+#include "../opencv-pro-develop/include/ProcessLiquidFlow.hpp"
 
 // ============================================================================
 // ProcessLiquidFlow - DLL 导出入口

@@ -9,7 +9,7 @@ CompileFlags:
     - /D_DEBUG
     - /D_CONSOLE
     - /IE:/01wk/vs2026/opencv-pro/opencv-pro/include
-    - /IE:/01wk/vs2026/opencv-pro/opencv-pro-test/include
+    - /IE:/01wk/vs2026/opencv-pro/opencv-pro-develop/include
     - /ID:/ProgramData/opencv411/build/include
 
 Index:

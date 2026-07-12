@@ -38,7 +38,7 @@ flowchart TD
         CALL -->|写入| SB[StringBuilder 缓冲区]
     end
 
-    subgraph opencv-pro-test/include
+    subgraph opencv-pro-develop/include
         CORE["ProcessLiquidFlow.hpp"]
         OLD["processLiquidFlowImage - 不变"]
         NEW["processLiquidFlowImageCore - 新增"]
@@ -52,7 +52,7 @@ flowchart TD
 
 ```
 opencv-pro/
-├── opencv-pro-test/                    ← 现有 exe 项目（不动）
+├── opencv-pro-develop/                 ← 现有 exe 项目（不动）
 │   └── include/
 │       └── ProcessLiquidFlow.hpp      ← 新增 processLiquidFlowImageCore()
 │
@@ -132,7 +132,7 @@ public static class LiquidFlowNative
 
 ## processLiquidFlowImageCore 函数设计
 
-位于 [`ProcessLiquidFlow.hpp`](opencv-pro-test/include/ProcessLiquidFlow.hpp)，在现有 `processLiquidFlowImage` 之后新增。
+位于 [`ProcessLiquidFlow.hpp`](opencv-pro-develop/include/ProcessLiquidFlow.hpp)，在现有 `processLiquidFlowImage` 之后新增。
 
 ### 签名
 
