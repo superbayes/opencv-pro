@@ -8,7 +8,7 @@ int main()
 {
     std::cout << "opencv-pro-test" << std::endl;
     std::cout << "OpenCV version: " << CV_VERSION << std::endl;
-    processLiquidFlow();
+    processLiquidFlows();
 
     return 0;
 }
