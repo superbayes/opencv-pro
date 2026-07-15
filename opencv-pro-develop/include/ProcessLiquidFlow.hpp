@@ -55,22 +55,25 @@ inline cv::Vec<float,5> findTwoValleys(const cv::Mat& reduceMat, double angle)
     int idx1 = minima[best1].first;
     int val1 = minima[best1].second;
 
-    // 4. 在 valley1 附近找次低谷: 距离 ∈ (10, 100), 值最小者
+    // 4. 在 valley1 附近找次低谷:
+    //    条件: 距离 valley1 ∈ [-30, -10] 和 [10, 30] 两个候选区域,找到次小值和其位置索引
     int best2 = -1;
     int best2_val = 256;
     for (size_t k = 0; k < minima.size(); ++k)
     {
-        if ((int)k == best1) continue;
-        int dist = std::abs(minima[k].first - idx1);
-        if (dist > 10 && dist < 60)
+        if ((int)k == best1) continue;                 // 跳过 valley1 自身
+        int diff = minima[k].first - idx1;             // 距离 valley1 的列偏移
+        // 候选区域: 左侧 [-30, -10] 或 右侧 [10, 30] (闭区间)
+        if ((diff >= -30 && diff <= -10) || (diff >= 10 && diff <= 30))
         {
-            if (minima[k].second < best2_val)
+            if (minima[k].second < best2_val)          // 取候选中的最小值作为次低谷
             {
                 best2_val = minima[k].second;
                 best2 = (int)k;
             }
         }
     }
+
 
     if (best2 < 0) return cv::Vec<float,5>(-1, 0, -1, 0, (float)angle);
 
